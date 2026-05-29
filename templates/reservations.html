@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+
+{% block title %}Rezervasyon Yönetimi | Lüks Otel Yönetim Sistemi{% endblock %}
+{% block page_title %}Rezervasyon Yönetimi{% endblock %}
+
+{% block content %}
+<div class="card-custom">
+    <!-- Filter and Search Bar -->
+    <div class="card-header-custom flex-column flex-md-row gap-3">
+        <div class="d-flex flex-wrap gap-2 align-items-center flex-grow-1">
+            <div class="search-input-group flex-grow-1" style="max-width: 400px;">
+                <i class="fa-solid fa-magnifying-glass search-input-icon"></i>
+                <input type="text" id="resSearch" class="form-control form-control-custom search-input-custom" placeholder="Müşteri adı veya oda no ile ara...">
+            </div>
+            
+            <!-- Status Filters -->
+            <div class="btn-group" role="group" aria-label="Status filters">
+                <button type="button" class="btn btn-outline-secondary btn-sm active filter-btn" data-status="All">Tümü</button>
+                <button type="button" class="btn btn-outline-warning btn-sm filter-btn" data-status="Pending">Bekleyenler</button>
+                <button type="button" class="btn btn-outline-success btn-sm filter-btn" data-status="Confirmed">Onaylılar</button>
+                <button type="button" class="btn btn-outline-danger btn-sm filter-btn" data-status="Cancelled">İptal Edilenler</button>
+            </div>
+        </div>
+        <div>
+            <a href="{{ url_for('reservation_create_page') }}" class="btn btn-primary rounded-pill px-4">
+                <i class="fa-solid fa-calendar-plus me-2"></i> Yeni Rezervasyon Oluştur
+            </a>
+        </div>
+    </div>
+
+    <!-- Reservations Table -->
+    <div class="card-body-custom p-0">
+        <div class="table-responsive-custom">
+            <table class="table table-custom" id="reservationsTable">
+                <thead>
+                    <tr>
+                        <th>Rez. ID</th>
+                        <th>Müşteri Bilgileri</th>
+                        <th>Oda Numarası (Tip)</th>
+                        <th>Giriş Tarihi</th>
+                        <th>Çıkış Tarihi</th>
+                        <th>Toplam Tutar</th>
+                        <th>Durum</th>
+                        <th class="text-end">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for res in reservations %}
+                    <tr class="res-row" data-status-val="{{ res.reservation_status }}">
+                        <td class="fw-bold">#{{ res.reservation_id }}</td>
+                        <td class="res-customer">
+                            <span class="fw-semibold d-block text-primary">{{ res.first_name }} {{ res.last_name }}</span>
+                            <small class="text-muted"><i class="fa-solid fa-phone me-1"></i> {{ res.phone }}</small>
+                        </td>
+                        <td class="res-room">
+                            <span class="fw-semibold d-block">Oda {{ res.room_number }}</span>
+                            <small class="text-muted">{{ res.room_type_name }}</small>
+                        </td>
+                        <td>{{ res.check_in_date }}</td>
+                        <td>{{ res.check_out_date }}</td>
+                        <td class="fw-bold text-primary">{{ "{:,.2f}".format(res.total_price) }} ₺</td>
+                        <td>
+                            <span class="badge-custom 
+                                {% if res.reservation_status == 'Pending' %}badge-res-pending
+                                {% elif res.reservation_status == 'Confirmed' %}badge-res-confirmed
+                                {% else %}badge-res-cancelled{% endif %}">
+                                {{ 'Beklemede' if res.reservation_status == 'Pending' else 
+                                   'Onaylandı' if res.reservation_status == 'Confirmed' else 'İptal Edildi' }}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('reservation_detail_page', reservation_id=res.reservation_id) }}" 
+                               class="btn-action btn-action-view me-1" title="Detaylar & Ödeme/Hizmet Ekle">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+                            {% if res.reservation_status != 'Cancelled' %}
+                            <button type="button" class="btn-action btn-action-delete me-1" title="İptal Et"
+                                    data-bs-toggle="modal" data-bs-target="#cancelReservationModal"
+                                    data-id="{{ res.reservation_id }}"
+                                    data-name="{{ res.first_name }} {{ res.last_name }}"
+                                    data-room="{{ res.room_number }}">
+                                <i class="fa-solid fa-ban text-danger"></i>
+                            </button>
+                            {% endif %}
+                            <button type="button" class="btn-action btn-action-delete" title="Kayıt Sil"
+                                    data-bs-toggle="modal" data-bs-target="#deleteReservationModal"
+                                    data-id="{{ res.reservation_id }}"
+                                    data-name="{{ res.first_name }} {{ res.last_name }}">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="fa-regular fa-calendar-xmark d-block mb-3 fs-2 text-muted"></i>
+                            Kayıtlı rezervasyon bulunamadı.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================================
+     MODALS
+     ========================================================================= -->
+
+<!-- Cancel Reservation Modal -->
+<div class="modal fade" id="cancelReservationModal" tabindex="-1" aria-labelledby="cancelReservationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom border-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('reservation_cancel') }}" method="POST">
+                <input type="hidden" id="cancel_reservation_id" name="reservation_id">
+                <div class="modal-body modal-body-custom text-center pt-0">
+                    <i class="fa-solid fa-circle-xmark text-warning fs-1 mb-3"></i>
+                    <h4 class="fw-bold mb-2">Rezervasyonu İptal Et?</h4>
+                    <p class="text-muted">
+                        <strong id="cancel_customer_name"></strong> adlı müşterinin 
+                        <strong id="cancel_room_number"></strong> numaralı oda için olan rezervasyonunu iptal etmek istediğinizden emin misiniz? 
+                        <br><span class="text-danger fw-semibold">İlişkili oda otomatik olarak 'Boş' (Available) durumuna geri dönecektir.</span>
+                    </p>
+                </div>
+                <div class="modal-footer modal-footer-custom justify-content-center border-0 pt-0 pb-4">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Vazgeç</button>
+                    <button type="submit" class="btn btn-warning rounded-pill px-4">Rezervasyonu İptal Et</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Reservation Modal -->
+<div class="modal fade" id="deleteReservationModal" tabindex="-1" aria-labelledby="deleteReservationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom border-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('reservation_delete') }}" method="POST">
+                <input type="hidden" id="delete_reservation_id" name="reservation_id">
+                <div class="modal-body modal-body-custom text-center pt-0">
+                    <i class="fa-solid fa-triangle-exclamation text-danger fs-1 mb-3"></i>
+                    <h4 class="fw-bold mb-2">Rezervasyon Kaydını Sil?</h4>
+                    <p class="text-muted">
+                        <strong id="delete_customer_name"></strong> isimli müşterinin rezervasyon kaydını kalıcı olarak silmek istiyor musunuz?
+                        Bu işlem geri alınamaz ve bu rezervasyona bağlı tüm ödeme ve hizmet kayıtları da silinecektir!
+                    </p>
+                </div>
+                <div class="modal-footer modal-footer-custom justify-content-center border-0 pt-0 pb-4">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4">Kayıtlı Rezervasyonu Sil</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Live Search
+    document.getElementById('resSearch').addEventListener('input', filterTable);
+    
+    // Status Buttons Filters
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    let activeStatus = 'All';
+    
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            activeStatus = this.getAttribute('data-status');
+            filterTable();
+        });
+    });
+
+    function filterTable() {
+        const query = document.getElementById('resSearch').value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.res-row');
+        
+        rows.forEach(row => {
+            const customer = row.querySelector('.res-customer').textContent.toLowerCase();
+            const room = row.querySelector('.res-room').textContent.toLowerCase();
+            const status = row.getAttribute('data-status-val');
+            
+            const matchesSearch = customer.includes(query) || room.includes(query);
+            const matchesStatus = (activeStatus === 'All') || (status === activeStatus);
+            
+            if (matchesSearch && matchesStatus) {
+                row.removeAttribute('data-searched');
+            } else {
+                row.setAttribute('data-searched', 'false');
+            }
+        });
+    }
+
+    // Initialize pagination
+    document.addEventListener('DOMContentLoaded', function() {
+        paginateTable('reservationsTable', 10);
+    });
+
+    // Populate Cancel Modal
+    const cancelModal = document.getElementById('cancelReservationModal');
+    cancelModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const id = button.getAttribute('data-id');
+        const name = button.getAttribute('data-name');
+        const room = button.getAttribute('data-room');
+        
+        document.getElementById('cancel_reservation_id').value = id;
+        document.getElementById('cancel_customer_name').textContent = name;
+        document.getElementById('cancel_room_number').textContent = 'Oda ' + room;
+    });
+
+    // Populate Delete Modal
+    const deleteModal = document.getElementById('deleteReservationModal');
+    deleteModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const id = button.getAttribute('data-id');
+        const name = button.getAttribute('data-name');
+        
+        document.getElementById('delete_reservation_id').value = id;
+        document.getElementById('delete_customer_name').textContent = name;
+    });
+</script>
+{% endblock %}

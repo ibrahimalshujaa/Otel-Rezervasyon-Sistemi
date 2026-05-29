@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+
+{% block title %}Ödeme Yönetimi | Lüks Otel Yönetim Sistemi{% endblock %}
+{% block page_title %}Ödeme Yönetimi{% endblock %}
+
+{% block content %}
+<div class="card-custom">
+    <!-- Search and Actions Bar -->
+    <div class="card-header-custom flex-column flex-md-row gap-3">
+        <div class="search-input-group">
+            <i class="fa-solid fa-magnifying-glass search-input-icon"></i>
+            <input type="text" id="paymentsSearch" class="form-control form-control-custom search-input-custom" placeholder="Müşteri adı veya oda no ile ara...">
+        </div>
+        <div>
+            <button type="button" class="btn btn-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addPaymentGlobalModal">
+                <i class="fa-solid fa-credit-card me-2"></i> Yeni Ödeme Kaydet
+            </button>
+        </div>
+    </div>
+
+    <!-- Payments Table -->
+    <div class="card-body-custom p-0">
+        <div class="table-responsive-custom">
+            <table class="table table-custom" id="paymentsTable">
+                <thead>
+                    <tr>
+                        <th>Ödeme ID</th>
+                        <th>Rezervasyon</th>
+                        <th>Müşteri</th>
+                        <th>Oda Numarası</th>
+                        <th>Ödeme Tarihi</th>
+                        <th>Yöntem</th>
+                        <th>Durum</th>
+                        <th>Tutar</th>
+                        <th class="text-end">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in payments %}
+                    <tr class="payment-row">
+                        <td class="fw-bold">#{{ p.payment_id }}</td>
+                        <td>
+                            <a href="{{ url_for('reservation_detail_page', reservation_id=p.reservation_id) }}" class="fw-semibold">Rez #{{ p.reservation_id }}</a>
+                        </td>
+                        <td class="payment-customer">{{ p.first_name }} {{ p.last_name }}</td>
+                        <td class="payment-room">Oda {{ p.room_number }}</td>
+                        <td>{{ p.payment_date.strftime('%d.%m.%Y %H:%M') if p.payment_date else '-' }}</td>
+                        <td>
+                            <span class="fw-medium">
+                                <i class="fa-solid {% if p.payment_method == 'Cash' %}fa-money-bill-1-wave text-success{% elif p.payment_method == 'Credit Card' %}fa-credit-card text-primary{% else %}fa-building-columns text-info{% endif %} me-1"></i>
+                                {{ 'Nakit' if p.payment_method == 'Cash' else 
+                                   'Kredi Kartı' if p.payment_method == 'Credit Card' else 'Havale/EFT' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {% if p.payment_status == 'Completed' %}bg-success{% elif p.payment_status == 'Pending' %}bg-warning{% else %}bg-danger{% endif %} rounded-pill px-3 py-1.5 fs-8">
+                                {{ 'Tamamlandı' if p.payment_status == 'Completed' else 
+                                   'Beklemede' if p.payment_status == 'Pending' else 'Başarısız' }}
+                            </span>
+                        </td>
+                        <td class="fw-bold text-primary">{{ "{:,.2f}".format(p.payment_amount) }} ₺</td>
+                        <td class="text-end">
+                            <button type="button" class="btn-action btn-action-edit me-1" title="Ödemeyi Düzenle"
+                                    data-bs-toggle="modal" data-bs-target="#editPaymentModal"
+                                    data-id="{{ p.payment_id }}"
+                                    data-res-id="{{ p.reservation_id }}"
+                                    data-amount="{{ p.payment_amount }}"
+                                    data-method="{{ p.payment_method }}"
+                                    data-status="{{ p.payment_status }}"
+                                    data-cust="{{ p.first_name }} {{ p.last_name }}">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button type="button" class="btn-action btn-action-delete" title="Ödemeyi Sil"
+                                    data-bs-toggle="modal" data-bs-target="#deletePaymentModal"
+                                    data-id="{{ p.payment_id }}"
+                                    data-amount="{{ p.payment_amount }}"
+                                    data-cust="{{ p.first_name }} {{ p.last_name }}">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-receipt d-block mb-3 fs-2 text-muted"></i>
+                            Kayıtlı ödeme bulunamadı.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================================
+     MODALS
+     ========================================================================= -->
+
+<!-- Add Payment Modal (Global) -->
+<div class="modal fade" id="addPaymentGlobalModal" tabindex="-1" aria-labelledby="addPaymentGlobalModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title fw-bold" id="addPaymentGlobalModalLabel"><i class="fa-solid fa-credit-card me-2 text-primary"></i> Yeni Ödeme Kaydet</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('payment_add') }}" method="POST">
+                <input type="hidden" name="redirect_to" value="list">
+                <div class="modal-body modal-body-custom">
+                    
+                    <div class="mb-3">
+                        <label for="reservation_id" class="form-label form-label-custom">İlişkili Rezervasyon</label>
+                        <select class="form-select form-control-custom" id="reservation_id" name="reservation_id" required>
+                            <option value="">Rezervasyon Seçiniz...</option>
+                            {% for res in reservations if res.reservation_status != 'Cancelled' %}
+                            <option value="{{ res.reservation_id }}">
+                                Rez #{{ res.reservation_id }} - {{ res.first_name }} {{ res.last_name }} (Oda: {{ res.room_number }}, Borç: {{ "{:,.2f}".format(res.total_price) }} ₺)
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="payment_amount" class="form-label form-label-custom">Ödeme Tutarı (₺)</label>
+                        <input type="number" step="0.01" class="form-control form-control-custom" id="payment_amount" name="payment_amount" placeholder="0.00" min="0.01" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="payment_method" class="form-label form-label-custom">Ödeme Yöntemi</label>
+                        <select class="form-select form-control-custom" id="payment_method" name="payment_method" required>
+                            <option value="Cash" selected>Nakit (Cash)</option>
+                            <option value="Credit Card">Kredi Kartı (Credit Card)</option>
+                            <option value="Bank Transfer">Banka Havalesi (Bank Transfer)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="payment_status" class="form-label form-label-custom">Ödeme Durumu</label>
+                        <select class="form-select form-control-custom" id="payment_status" name="payment_status" required>
+                            <option value="Completed" selected>Tamamlandı (Completed)</option>
+                            <option value="Pending">Beklemede (Pending)</option>
+                            <option value="Failed">Başarısız (Failed)</option>
+                        </select>
+                    </div>
+
+                </div>
+                <div class="modal-footer modal-footer-custom">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Payment Confirmation Modal -->
+<div class="modal fade" id="deletePaymentModal" tabindex="-1" aria-labelledby="deletePaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom border-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('payment_delete') }}" method="POST">
+                <input type="hidden" id="delete_payment_id" name="payment_id">
+                <div class="modal-body modal-body-custom text-center pt-0">
+                    <i class="fa-solid fa-triangle-exclamation text-danger fs-1 mb-3"></i>
+                    <h4 class="fw-bold mb-2">Ödeme Kaydını Sil?</h4>
+                    <p class="text-muted">
+                        <strong id="delete_payment_cust"></strong> müşterisine ait 
+                        <strong id="delete_payment_amount"></strong> ₺ tutarındaki ödeme kaydını silmek istediğinizden emin misiniz?
+                        <br><span class="text-danger fw-semibold">Bu işlem, dashboard gelir raporlarını da etkileyecektir!</span>
+                    </p>
+                </div>
+                <div class="modal-footer modal-footer-custom justify-content-center border-0 pt-0 pb-4">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Vazgeç</button>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4">Evet, Sil</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Payment Modal -->
+<div class="modal fade" id="editPaymentModal" tabindex="-1" aria-labelledby="editPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title fw-bold" id="editPaymentModalLabel"><i class="fa-solid fa-pen-to-square me-2 text-primary"></i> Ödeme Düzenle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('payment_update') }}" method="POST">
+                <input type="hidden" name="redirect_to" value="list">
+                <input type="hidden" id="edit_payment_id" name="payment_id">
+                <input type="hidden" id="edit_reservation_id" name="reservation_id">
+                <div class="modal-body modal-body-custom">
+                    
+                    <div class="mb-3">
+                        <label class="form-label form-label-custom">İlişkili Müşteri</label>
+                        <input type="text" class="form-control form-control-custom" id="edit_payment_customer" readonly disabled style="background-color: var(--bg-main);">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_payment_amount" class="form-label form-label-custom">Ödeme Tutarı (₺)</label>
+                        <input type="number" step="0.01" class="form-control form-control-custom" id="edit_payment_amount" name="payment_amount" placeholder="0.00" min="0.01" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_payment_method" class="form-label form-label-custom">Ödeme Yöntemi</label>
+                        <select class="form-select form-control-custom" id="edit_payment_method" name="payment_method" required>
+                            <option value="Cash">Nakit (Cash)</option>
+                            <option value="Credit Card">Kredi Kartı (Credit Card)</option>
+                            <option value="Bank Transfer">Banka Havalesi (Bank Transfer)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_payment_status" class="form-label form-label-custom">Ödeme Durumu</label>
+                        <select class="form-select form-control-custom" id="edit_payment_status" name="payment_status" required>
+                            <option value="Completed">Tamamlandı (Completed)</option>
+                            <option value="Pending">Beklemede (Pending)</option>
+                            <option value="Failed">Başarısız (Failed)</option>
+                        </select>
+                    </div>
+
+                </div>
+                <div class="modal-footer modal-footer-custom">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Değişiklikleri Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // client-side payments filter
+    document.getElementById('paymentsSearch').addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.payment-row');
+        
+        rows.forEach(row => {
+            const customer = row.querySelector('.payment-customer').textContent.toLowerCase();
+            const room = row.querySelector('.payment-room').textContent.toLowerCase();
+            
+            if (customer.includes(query) || room.includes(query)) {
+                row.removeAttribute('data-searched');
+            } else {
+                row.setAttribute('data-searched', 'false');
+            }
+        });
+    });
+
+    // Initialize pagination
+    document.addEventListener('DOMContentLoaded', function() {
+        paginateTable('paymentsTable', 10);
+    });
+
+    // Populate Edit Modal
+    const editModal = document.getElementById('editPaymentModal');
+    if (editModal) {
+        editModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const id = button.getAttribute('data-id');
+            const resId = button.getAttribute('data-res-id');
+            const amount = button.getAttribute('data-amount');
+            const method = button.getAttribute('data-method');
+            const status = button.getAttribute('data-status');
+            const customer = button.getAttribute('data-cust');
+            
+            document.getElementById('edit_payment_id').value = id;
+            document.getElementById('edit_reservation_id').value = resId;
+            document.getElementById('edit_payment_customer').value = customer;
+            document.getElementById('edit_payment_amount').value = parseFloat(amount);
+            document.getElementById('edit_payment_method').value = method;
+            document.getElementById('edit_payment_status').value = status;
+        });
+    }
+
+    // Populate Delete Modal
+    const deleteModal = document.getElementById('deletePaymentModal');
+    deleteModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const id = button.getAttribute('data-id');
+        const amount = button.getAttribute('data-amount');
+        const customer = button.getAttribute('data-cust');
+        
+        document.getElementById('delete_payment_id').value = id;
+        document.getElementById('delete_payment_cust').textContent = customer;
+        document.getElementById('delete_payment_amount').textContent = parseFloat(amount).toLocaleString('tr-TR', { minimumFractionDigits: 2 });
+    });
+</script>
+{% endblock %}

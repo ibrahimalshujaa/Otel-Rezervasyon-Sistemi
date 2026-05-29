@@ -1,0 +1,492 @@
+{% extends 'base.html' %}
+
+{% block title %}Oda & Oda Tipi Yönetimi | Lüks Otel Yönetim Sistemi{% endblock %}
+{% block page_title %}Oda & Oda Tipi Yönetimi{% endblock %}
+
+{% block content %}
+<div class="card-custom">
+    <!-- Tab Navigation Header -->
+    <div class="card-header-custom pb-0 border-bottom-0">
+        <ul class="nav nav-tabs border-bottom-0" id="roomTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active fw-bold px-4 pb-3" id="rooms-tab" data-bs-toggle="tab" data-bs-target="#rooms-pane" type="button" role="tab" aria-controls="rooms-pane" aria-selected="true">
+                    <i class="fa-solid fa-door-closed me-2 text-primary"></i> Odalar
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-bold px-4 pb-3" id="types-tab" data-bs-toggle="tab" data-bs-target="#types-pane" type="button" role="tab" aria-controls="types-pane" aria-selected="false">
+                    <i class="fa-solid fa-tags me-2 text-primary"></i> Oda Tipleri
+                </button>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="card-body-custom pt-0">
+        <div class="tab-content mt-4" id="roomTabsContent">
+            
+            <!-- TAB 1: ROOMS PANE -->
+            <div class="tab-pane fade show active" id="rooms-pane" role="tabpanel" aria-labelledby="rooms-tab">
+                <!-- Search & Add Row -->
+                <div class="filter-bar">
+                    <div class="search-input-group">
+                        <i class="fa-solid fa-magnifying-glass search-input-icon"></i>
+                        <input type="text" id="roomsSearch" class="form-control form-control-custom search-input-custom" placeholder="Oda no veya oda tipine göre ara...">
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addRoomModal">
+                            <i class="fa-solid fa-plus me-2"></i> Yeni Oda Ekle
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Rooms Table -->
+                <div class="table-responsive-custom">
+                    <table class="table table-custom" id="roomsTable">
+                        <thead>
+                            <tr>
+                                <th>Oda ID</th>
+                                <th>Oda Numarası</th>
+                                <th>Oda Tipi</th>
+                                <th>Kat</th>
+                                <th>Gecelik Fiyat</th>
+                                <th>Durum</th>
+                                <th class="text-end">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for room in rooms %}
+                            <tr class="room-row">
+                                <td class="fw-bold">#{{ room.room_id }}</td>
+                                <td class="room-number fw-semibold text-primary">Oda {{ room.room_number }}</td>
+                                <td class="room-type">{{ room.type_name }}</td>
+                                <td>{{ room.floor_number }}. Kat</td>
+                                <td>{{ "{:,.2f}".format(room.price_per_night) }} ₺</td>
+                                <td>
+                                    <span class="badge-custom 
+                                        {% if room.room_status == 'Available' %}badge-status-available
+                                        {% elif room.room_status == 'Reserved' %}badge-status-reserved
+                                        {% elif room.room_status == 'Occupied' %}badge-status-occupied
+                                        {% else %}badge-status-maintenance{% endif %}">
+                                        {{ 'Boş' if room.room_status == 'Available' else 
+                                           'Rezerve' if room.room_status == 'Reserved' else 
+                                           'Dolu' if room.room_status == 'Occupied' else 'Bakımda' }}
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <button type="button" class="btn-action btn-action-edit me-1" title="Düzenle"
+                                            data-bs-toggle="modal" data-bs-target="#editRoomModal"
+                                            data-id="{{ room.room_id }}"
+                                            data-number="{{ room.room_number }}"
+                                            data-type-id="{{ room.room_type_id }}"
+                                            data-floor="{{ room.floor_number }}"
+                                            data-status="{{ room.room_status }}">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <button type="button" class="btn-action btn-action-delete" title="Sil"
+                                            data-bs-toggle="modal" data-bs-target="#deleteRoomModal"
+                                            data-id="{{ room.room_id }}"
+                                            data-number="{{ room.room_number }}">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center py-5 text-muted">
+                                    <i class="fa-solid fa-door-open d-block mb-3 fs-2"></i>
+                                    Kayıtlı oda bulunamadı.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 2: ROOM TYPES PANE -->
+            <div class="tab-pane fade" id="types-pane" role="tabpanel" aria-labelledby="types-tab">
+                <!-- Search & Add Row -->
+                <div class="filter-bar">
+                    <div class="search-input-group">
+                        <i class="fa-solid fa-magnifying-glass search-input-icon"></i>
+                        <input type="text" id="typesSearch" class="form-control form-control-custom search-input-custom" placeholder="Oda tipi adına göre ara...">
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addTypeModal">
+                            <i class="fa-solid fa-plus me-2"></i> Yeni Oda Tipi Ekle
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Room Types Table -->
+                <div class="table-responsive-custom">
+                    <table class="table table-custom" id="typesTable">
+                        <thead>
+                            <tr>
+                                <th>Tip ID</th>
+                                <th>Oda Tipi Adı</th>
+                                <th>Gecelik Fiyat</th>
+                                <th>Kapasite (Kişi)</th>
+                                <th class="text-end">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rt in room_types %}
+                            <tr class="type-row">
+                                <td class="fw-bold">#{{ rt.room_type_id }}</td>
+                                <td class="type-name fw-semibold text-primary">{{ rt.type_name }}</td>
+                                <td>{{ "{:,.2f}".format(rt.price_per_night) }} ₺</td>
+                                <td><i class="fa-solid fa-users me-2 text-muted"></i>{{ rt.capacity }} Kişi</td>
+                                <td class="text-end">
+                                    <button type="button" class="btn-action btn-action-edit me-1" title="Düzenle"
+                                            data-bs-toggle="modal" data-bs-target="#editTypeModal"
+                                            data-id="{{ rt.room_type_id }}"
+                                            data-name="{{ rt.type_name }}"
+                                            data-price="{{ rt.price_per_night }}"
+                                            data-capacity="{{ rt.capacity }}">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <button type="button" class="btn-action btn-action-delete" title="Sil"
+                                            data-bs-toggle="modal" data-bs-target="#deleteTypeModal"
+                                            data-id="{{ rt.room_type_id }}"
+                                            data-name="{{ rt.type_name }}">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <i class="fa-solid fa-tags d-block mb-3 fs-2"></i>
+                                    Kayıtlı oda tipi bulunamadı.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================================
+     ODALAR (ROOMS) MODALS
+     ========================================================================= -->
+
+<!-- Add Room Modal -->
+<div class="modal fade" id="addRoomModal" tabindex="-1" aria-labelledby="addRoomModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title fw-bold" id="addRoomModalLabel"><i class="fa-solid fa-circle-plus me-2 text-primary"></i> Yeni Oda Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('room_add') }}" method="POST">
+                <div class="modal-body modal-body-custom">
+                    <div class="mb-3">
+                        <label for="add_room_number" class="form-label form-label-custom">Oda Numarası</label>
+                        <input type="text" class="form-control form-control-custom" id="add_room_number" name="room_number" placeholder="Örn: 204" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="add_room_type_id" class="form-label form-label-custom">Oda Tipi</label>
+                        <select class="form-select form-control-custom" id="add_room_type_id" name="room_type_id" required>
+                            <option value="">Oda Tipi Seçiniz</option>
+                            {% for rt in room_types %}
+                            <option value="{{ rt.room_type_id }}">{{ rt.type_name }} ({{ "{:,.2f}".format(rt.price_per_night) }} ₺ / gece)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="add_floor_number" class="form-label form-label-custom">Kat Numarası</label>
+                        <input type="number" class="form-control form-control-custom" id="add_floor_number" name="floor_number" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="add_room_status" class="form-label form-label-custom">Oda Durumu</label>
+                        <select class="form-select form-control-custom" id="add_room_status" name="room_status" required>
+                            <option value="Available" selected>Boş (Available)</option>
+                            <option value="Reserved">Rezerve (Reserved)</option>
+                            <option value="Occupied">Dolu (Occupied)</option>
+                            <option value="Maintenance">Bakımda (Maintenance)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer modal-footer-custom">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Oda Ekle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Room Modal -->
+<div class="modal fade" id="editRoomModal" tabindex="-1" aria-labelledby="editRoomModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title fw-bold" id="editRoomModalLabel"><i class="fa-solid fa-pen-to-square me-2 text-primary"></i> Oda Düzenle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('room_update') }}" method="POST">
+                <input type="hidden" id="edit_room_id" name="room_id">
+                <div class="modal-body modal-body-custom">
+                    <div class="mb-3">
+                        <label for="edit_room_number" class="form-label form-label-custom">Oda Numarası</label>
+                        <input type="text" class="form-control form-control-custom" id="edit_room_number" name="room_number" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_room_type_id" class="form-label form-label-custom">Oda Tipi</label>
+                        <select class="form-select form-control-custom" id="edit_room_type_id" name="room_type_id" required>
+                            {% for rt in room_types %}
+                            <option value="{{ rt.room_type_id }}">{{ rt.type_name }} ({{ "{:,.2f}".format(rt.price_per_night) }} ₺ / gece)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_floor_number" class="form-label form-label-custom">Kat Numarası</label>
+                        <input type="number" class="form-control form-control-custom" id="edit_floor_number" name="floor_number" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_room_status" class="form-label form-label-custom">Oda Durumu</label>
+                        <select class="form-select form-control-custom" id="edit_room_status" name="room_status" required>
+                            <option value="Available">Boş (Available)</option>
+                            <option value="Reserved">Rezerve (Reserved)</option>
+                            <option value="Occupied">Dolu (Occupied)</option>
+                            <option value="Maintenance">Bakımda (Maintenance)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer modal-footer-custom">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Değişiklikleri Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Room Modal -->
+<div class="modal fade" id="deleteRoomModal" tabindex="-1" aria-labelledby="deleteRoomModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom border-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('room_delete') }}" method="POST">
+                <input type="hidden" id="delete_room_id" name="room_id">
+                <div class="modal-body modal-body-custom text-center pt-0">
+                    <i class="fa-solid fa-circle-exclamation text-danger fs-1 mb-3"></i>
+                    <h4 class="fw-bold mb-2">Odayı Sil?</h4>
+                    <p class="text-muted">
+                        <strong id="delete_room_label"></strong> numaralı odayı silmek istediğinizden emin misiniz? 
+                        Eğer bu odaya atanmış aktif bir rezervasyon varsa veritabanı ilişkisi kısıtlaması nedeniyle silme işlemi başarısız olacaktır.
+                    </p>
+                </div>
+                <div class="modal-footer modal-footer-custom justify-content-center border-0 pt-0 pb-4">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Vazgeç</button>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4">Evet, Sil</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- =========================================================================
+     ODA TİPLERİ (ROOM TYPES) MODALS
+     ========================================================================= -->
+
+<!-- Add Type Modal -->
+<div class="modal fade" id="addTypeModal" tabindex="-1" aria-labelledby="addTypeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title fw-bold" id="addTypeModalLabel"><i class="fa-solid fa-tags me-2 text-primary"></i> Yeni Oda Tipi Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('room_type_add') }}" method="POST">
+                <div class="modal-body modal-body-custom">
+                    <div class="mb-3">
+                        <label for="add_type_name" class="form-label form-label-custom">Oda Tipi Adı</label>
+                        <input type="text" class="form-control form-control-custom" id="add_type_name" name="type_name" placeholder="Örn: Kral Dairesi" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="add_price" class="form-label form-label-custom">Gecelik Fiyat (₺)</label>
+                        <input type="number" step="0.01" class="form-control form-control-custom" id="add_price" name="price_per_night" placeholder="0.00" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="add_capacity" class="form-label form-label-custom">Kapasite (Kişi)</label>
+                        <input type="number" class="form-control form-control-custom" id="add_capacity" name="capacity" min="1" required>
+                    </div>
+                </div>
+                <div class="modal-footer modal-footer-custom">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Type Modal -->
+<div class="modal fade" id="editTypeModal" tabindex="-1" aria-labelledby="editTypeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title fw-bold" id="editTypeModalLabel"><i class="fa-solid fa-pen-to-square me-2 text-primary"></i> Oda Tipi Düzenle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('room_type_update') }}" method="POST">
+                <input type="hidden" id="edit_room_type_id" name="room_type_id">
+                <div class="modal-body modal-body-custom">
+                    <div class="mb-3">
+                        <label for="edit_type_name" class="form-label form-label-custom">Oda Tipi Adı</label>
+                        <input type="text" class="form-control form-control-custom" id="edit_type_name" name="type_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_price" class="form-label form-label-custom">Gecelik Fiyat (₺)</label>
+                        <input type="number" step="0.01" class="form-control form-control-custom" id="edit_price" name="price_per_night" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_capacity" class="form-label form-label-custom">Kapasite (Kişi)</label>
+                        <input type="number" class="form-control form-control-custom" id="edit_capacity" name="capacity" min="1" required>
+                    </div>
+                </div>
+                <div class="modal-footer modal-footer-custom">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Değişiklikleri Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Type Modal -->
+<div class="modal fade" id="deleteTypeModal" tabindex="-1" aria-labelledby="deleteTypeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom border-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('room_type_delete') }}" method="POST">
+                <input type="hidden" id="delete_room_type_id" name="room_type_id">
+                <div class="modal-body modal-body-custom text-center pt-0">
+                    <i class="fa-solid fa-circle-exclamation text-danger fs-1 mb-3"></i>
+                    <h4 class="fw-bold mb-2">Oda Tipini Sil?</h4>
+                    <p class="text-muted">
+                        <strong id="delete_type_label"></strong> tipini silmek istediğinizden emin misiniz? 
+                        Eğer bu tipe ait odalar mevcutsa silme işlemi başarısız olacaktır.
+                    </p>
+                </div>
+                <div class="modal-footer modal-footer-custom justify-content-center border-0 pt-0 pb-4">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Vazgeç</button>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4">Evet, Sil</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Rooms client-side filter
+    document.getElementById('roomsSearch').addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.room-row');
+        rows.forEach(function(row) {
+            const number = row.querySelector('.room-number').textContent.toLowerCase();
+            const type = row.querySelector('.room-type').textContent.toLowerCase();
+            if (number.includes(query) || type.includes(query)) {
+                row.removeAttribute('data-searched');
+            } else {
+                row.setAttribute('data-searched', 'false');
+            }
+        });
+    });
+
+    // Room Types client-side filter
+    document.getElementById('typesSearch').addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.type-row');
+        rows.forEach(function(row) {
+            const name = row.querySelector('.type-name').textContent.toLowerCase();
+            if (name.includes(query)) {
+                row.removeAttribute('data-searched');
+            } else {
+                row.setAttribute('data-searched', 'false');
+            }
+        });
+    });
+
+    // Initialize pagination
+    document.addEventListener('DOMContentLoaded', function() {
+        paginateTable('roomsTable', 10);
+        paginateTable('typesTable', 10);
+    });
+
+    // Populate Edit Room Modal
+    const editRoomModal = document.getElementById('editRoomModal');
+    editRoomModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const id = button.getAttribute('data-id');
+        const number = button.getAttribute('data-number');
+        const typeId = button.getAttribute('data-type-id');
+        const floor = button.getAttribute('data-floor');
+        const status = button.getAttribute('data-status');
+        
+        document.getElementById('edit_room_id').value = id;
+        document.getElementById('edit_room_number').value = number;
+        document.getElementById('edit_room_type_id').value = typeId;
+        document.getElementById('edit_floor_number').value = floor;
+        document.getElementById('edit_room_status').value = status;
+    });
+
+    // Populate Delete Room Modal
+    const deleteRoomModal = document.getElementById('deleteRoomModal');
+    deleteRoomModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const id = button.getAttribute('data-id');
+        const number = button.getAttribute('data-number');
+        
+        document.getElementById('delete_room_id').value = id;
+        document.getElementById('delete_room_label').textContent = 'Oda ' + number;
+    });
+
+    // Populate Edit Type Modal
+    const editTypeModal = document.getElementById('editTypeModal');
+    editTypeModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const id = button.getAttribute('data-id');
+        const name = button.getAttribute('data-name');
+        const price = button.getAttribute('data-price');
+        const capacity = button.getAttribute('data-capacity');
+        
+        document.getElementById('edit_room_type_id').value = id;
+        document.getElementById('edit_type_name').value = name;
+        document.getElementById('edit_price').value = price;
+        document.getElementById('edit_capacity').value = capacity;
+    });
+
+    // Populate Delete Type Modal
+    const deleteTypeModal = document.getElementById('deleteTypeModal');
+    deleteTypeModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const id = button.getAttribute('data-id');
+        const name = button.getAttribute('data-name');
+        
+        document.getElementById('delete_room_type_id').value = id;
+        document.getElementById('delete_type_label').textContent = name;
+    });
+
+    // Auto-open modals via URL params if necessary
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('add') === 'true') {
+        const addModal = new bootstrap.Modal(document.getElementById('addRoomModal'));
+        addModal.show();
+    }
+</script>
+{% endblock %}

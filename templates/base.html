@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Lüks Otel Yönetim Sistemi{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/style.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+    <!-- Wait, let's use the official Bootstrap 5 CDN link -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome 6 for Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-hotel sidebar-logo"></i>
+                <div class="brand-info">
+                    <span class="brand-name">OTEL REZ</span>
+                    <span class="brand-subtitle">Yönetim Sistemi</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-menu">
+                <a href="{{ url_for('dashboard') }}" class="menu-item {% if active_page == 'dashboard' %}active{% endif %}">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('customers_list') }}" class="menu-item {% if active_page == 'customers' %}active{% endif %}">
+                    <i class="fa-solid fa-user-group"></i>
+                    <span>Müşteri Yönetimi</span>
+                </a>
+                <a href="{{ url_for('rooms_list') }}" class="menu-item {% if active_page == 'rooms' %}active{% endif %}">
+                    <i class="fa-solid fa-door-open"></i>
+                    <span>Oda & Oda Tipi</span>
+                </a>
+                <a href="{{ url_for('reservations_list') }}" class="menu-item {% if active_page == 'reservations' %}active{% endif %}">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <span>Rezervasyonlar</span>
+                </a>
+                <a href="{{ url_for('payments_list') }}" class="menu-item {% if active_page == 'payments' %}active{% endif %}">
+                    <i class="fa-solid fa-credit-card"></i>
+                    <span>Ödeme Yönetimi</span>
+                </a>
+                <a href="{{ url_for('services_list') }}" class="menu-item {% if active_page == 'services' %}active{% endif %}">
+                    <i class="fa-solid fa-bell-concierge"></i>
+                    <span>Ek Hizmetler</span>
+                </a>
+                <a href="{{ url_for('staff_list') }}" class="menu-item {% if active_page == 'staff' %}active{% endif %}">
+                    <i class="fa-solid fa-user-tie"></i>
+                    <span>Personel Yönetimi</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <img src="https://ui-avatars.com/api/?name=Admin+User&background=0D6EFD&color=fff&rounded=true" alt="Admin" class="avatar">
+                    <div class="user-info">
+                        <span class="user-name">Yönetici Paneli</span>
+                        <span class="user-role">Sistem Yöneticisi</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header bar -->
+            <header class="content-header">
+                <div class="header-left">
+                    <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+                </div>
+                <div class="header-right">
+                    <div class="date-time" id="current-date-time">
+                        <i class="fa-regular fa-clock me-2 text-primary"></i>
+                        <span id="date-time-text">Yükleniyor...</span>
+                    </div>
+                    <div class="quick-actions">
+                        <a href="{{ url_for('reservation_create_page') }}" class="btn btn-primary btn-sm rounded-pill px-3">
+                            <i class="fa-solid fa-plus me-1"></i> Yeni Rezervasyon
+                        </a>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Body -->
+            <div class="content-body">
+                <!-- Flash messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show custom-alert" role="alert">
+                                <i class="fa-solid {% if category == 'success' %}fa-circle-check{% elif category == 'error' or category == 'danger' %}fa-circle-xmark{% else %}fa-circle-info{% endif %} me-2"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Kapat"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Reusable client-side table pagination function
+        function paginateTable(tableId, rowsPerPage = 10) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            
+            // Get all rows that are not header or custom "empty" rows
+            const allRows = Array.from(tbody.querySelectorAll('tr:not(.no-records-row)'));
+            let currentPage = 1;
+
+            const cardCustom = table.closest('.card-custom') || table.parentElement;
+            let pagContainer = cardCustom.querySelector('.pagination-container');
+            if (!pagContainer) {
+                pagContainer = document.createElement('div');
+                pagContainer.className = 'pagination-container';
+                cardCustom.appendChild(pagContainer);
+            }
+
+            function updateTable() {
+                // Find rows currently visible (i.e. not hidden by search filters)
+                const visibleRows = allRows.filter(row => row.getAttribute('data-searched') !== 'false');
+                const totalRows = visibleRows.length;
+                const totalPages = Math.ceil(totalRows / rowsPerPage) || 1;
+
+                if (currentPage > totalPages) currentPage = totalPages;
+                if (currentPage < 1) currentPage = 1;
+
+                const startIdx = (currentPage - 1) * rowsPerPage;
+                const endIdx = startIdx + rowsPerPage;
+
+                // Show only current page's rows, hide the rest
+                allRows.forEach(row => {
+                    row.style.display = 'none';
+                });
+
+                visibleRows.forEach((row, idx) => {
+                    if (idx >= startIdx && idx < endIdx) {
+                        row.style.display = '';
+                    }
+                });
+
+                pagContainer.innerHTML = '';
+                if (totalRows === 0) {
+                    pagContainer.style.display = 'none';
+                    return;
+                }
+                pagContainer.style.display = 'flex';
+
+                const info = document.createElement('div');
+                info.className = 'pagination-info';
+                info.innerHTML = `Toplam <strong>${totalRows}</strong> kayıttan <strong>${startIdx + 1}-${Math.min(endIdx, totalRows)}</strong> arası gösteriliyor`;
+                pagContainer.appendChild(info);
+
+                const controls = document.createElement('div');
+                controls.className = 'pagination-controls';
+
+                // Prev
+                const prevBtn = document.createElement('button');
+                prevBtn.className = 'pagination-btn';
+                prevBtn.type = 'button';
+                prevBtn.innerHTML = '<i class="fa-solid fa-angle-left"></i>';
+                prevBtn.disabled = currentPage === 1;
+                prevBtn.onclick = function() {
+                    currentPage--;
+                    updateTable();
+                };
+                controls.appendChild(prevBtn);
+
+                // Numbers
+                const startPage = Math.max(1, currentPage - 2);
+                const endPage = Math.min(totalPages, startPage + 4);
+                for (let i = startPage; i <= endPage; i++) {
+                    const pageBtn = document.createElement('button');
+                    pageBtn.className = `pagination-btn ${currentPage === i ? 'active' : ''}`;
+                    pageBtn.type = 'button';
+                    pageBtn.textContent = i;
+                    pageBtn.onclick = function() {
+                        currentPage = i;
+                        updateTable();
+                    };
+                    controls.appendChild(pageBtn);
+                }
+
+                // Next
+                const nextBtn = document.createElement('button');
+                nextBtn.className = 'pagination-btn';
+                nextBtn.type = 'button';
+                nextBtn.innerHTML = '<i class="fa-solid fa-angle-right"></i>';
+                nextBtn.disabled = currentPage === totalPages;
+                nextBtn.onclick = function() {
+                    currentPage++;
+                    updateTable();
+                };
+                controls.appendChild(nextBtn);
+
+                pagContainer.appendChild(controls);
+            }
+
+            // Hook search input to reset pagination page
+            const searchInputs = document.querySelectorAll('input[id$="Search"]');
+            searchInputs.forEach(input => {
+                input.addEventListener('input', () => {
+                    currentPage = 1;
+                    setTimeout(updateTable, 10);
+                });
+            });
+
+            // Hook filter buttons (active/inactive tabs/status buttons)
+            const filterBtns = document.querySelectorAll('.filter-btn, .nav-link');
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    currentPage = 1;
+                    setTimeout(updateTable, 10);
+                });
+            });
+
+            updateTable();
+            
+            // Return instance controller to allow manual trigger
+            return {
+                refresh: function() {
+                    currentPage = 1;
+                    updateTable();
+                }
+            };
+        }
+
+        // Update Time in Header
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            document.getElementById('date-time-text').textContent = now.toLocaleDateString('tr-TR', options);
+        }
+        setInterval(updateDateTime, 1000);
+        updateDateTime();
+
+        // Auto dismiss alerts after 5 seconds
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.custom-alert');
+            alerts.forEach(function(alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

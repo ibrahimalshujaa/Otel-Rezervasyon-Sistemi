@@ -1,0 +1,413 @@
+{% extends 'base.html' %}
+
+{% block title %}Rezervasyon Detay | Lüks Otel Yönetim Sistemi{% endblock %}
+{% block page_title %}Rezervasyon Detayları{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <span class="badge bg-secondary p-2 mb-2">Rezervasyon #{{ res.reservation_id }}</span>
+            </div>
+            <a href="{{ url_for('reservations_list') }}" class="btn btn-outline-secondary rounded-pill px-4 btn-sm">
+                <i class="fa-solid fa-arrow-left me-1"></i> Listeye Geri Dön
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Left Column: Reservation Info & Attached Services -->
+    <div class="col-lg-8 mb-4">
+        
+        <!-- Reservation details card -->
+        <div class="card-custom mb-4">
+            <div class="card-header-custom">
+                <h5 class="card-header-title"><i class="fa-solid fa-circle-info me-2 text-primary"></i> Temel Bilgiler</h5>
+                <span class="badge-custom 
+                    {% if res.reservation_status == 'Pending' %}badge-res-pending
+                    {% elif res.reservation_status == 'Confirmed' %}badge-res-confirmed
+                    {% else %}badge-res-cancelled{% endif %}">
+                    {{ 'Beklemede' if res.reservation_status == 'Pending' else 
+                       'Onaylandı' if res.reservation_status == 'Confirmed' else 'İptal Edildi' }}
+                </span>
+            </div>
+            <div class="card-body-custom">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <small class="text-muted d-block uppercase fw-bold fs-8">Müşteri Adı Soyadı</small>
+                        <span class="fw-semibold fs-5 text-primary">{{ res.first_name }} {{ res.last_name }}</span>
+                        <div class="mt-1 small">
+                            <span class="d-block"><i class="fa-solid fa-phone me-1 text-muted"></i> {{ res.phone }}</span>
+                            <span class="d-block"><i class="fa-solid fa-envelope me-1 text-muted"></i> {{ res.email }}</span>
+                            <span class="d-block"><i class="fa-solid fa-id-card me-1 text-muted"></i> Pasaport/TCKN: {{ res.passport_no }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <small class="text-muted d-block uppercase fw-bold fs-8">Oda Detayları</small>
+                        <span class="fw-semibold fs-5 text-dark">Oda {{ res.room_number }}</span>
+                        <div class="mt-1 small">
+                            <span class="d-block"><i class="fa-solid fa-tag me-1 text-muted"></i> Tip: {{ res.room_type_name }}</span>
+                            <span class="d-block"><i class="fa-solid fa-bed me-1 text-muted"></i> Gecelik Fiyat: {{ "{:,.2f}".format(res.total_price / 2) if 'calculated' in res else 'Tarife Fiyatı' }}</span>
+                        </div>
+                    </div>
+                </div>
+                <hr class="my-3">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <small class="text-muted d-block uppercase fw-bold fs-8">Giriş Tarihi</small>
+                        <span class="fw-semibold"><i class="fa-regular fa-calendar-check me-2 text-success"></i> {{ res.check_in_date }}</span>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <small class="text-muted d-block uppercase fw-bold fs-8">Çıkış Tarihi</small>
+                        <span class="fw-semibold"><i class="fa-regular fa-calendar-times me-2 text-danger"></i> {{ res.check_out_date }}</span>
+                    </div>
+                    <div class="col-md-4 mb-3 text-md-end">
+                        <small class="text-muted d-block uppercase fw-bold fs-8">Genel Toplam (Oda + Hizmetler)</small>
+                        <span class="fw-extrabold text-primary fs-3">{{ "{:,.2f}".format(res.total_price) }} ₺</span>
+                    </div>
+                </div>
+                
+                {% if res.reservation_status != 'Cancelled' %}
+                <div class="d-flex gap-2 justify-content-end mt-2">
+                    <button type="button" class="btn btn-outline-warning btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#editReservationModal">
+                        <i class="fa-solid fa-pen-to-square me-1"></i> Rezervasyonu Düzenle
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#cancelReservationModal">
+                        <i class="fa-solid fa-ban me-1"></i> İptal Et
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Ek Hizmetler (Attached Services) Card -->
+        <div class="card-custom">
+            <div class="card-header-custom">
+                <h5 class="card-header-title"><i class="fa-solid fa-bell-concierge me-2 text-primary"></i> Ek Hizmetler</h5>
+                {% if res.reservation_status != 'Cancelled' %}
+                <button type="button" class="btn btn-primary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#attachServiceModal">
+                    <i class="fa-solid fa-plus me-1"></i> Hizmet Ekle
+                </button>
+                {% endif %}
+            </div>
+            <div class="card-body-custom p-0">
+                <div class="table-responsive-custom">
+                    <table class="table table-custom">
+                        <thead>
+                            <tr>
+                                <th>Hizmet Adı</th>
+                                <th>Birim Fiyat</th>
+                                <th>Adet</th>
+                                <th>Ara Toplam</th>
+                                {% if res.reservation_status != 'Cancelled' %}
+                                <th class="text-end">İşlemler</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in attached_services %}
+                            <tr>
+                                <td class="fw-semibold text-dark">{{ s.service_name }}</td>
+                                <td>{{ "{:,.2f}".format(s.service_price) }} ₺</td>
+                                <td><span class="badge bg-secondary rounded-pill px-2.5 py-1.5">{{ s.quantity }}</span></td>
+                                <td class="fw-bold text-primary">{{ "{:,.2f}".format(s.service_price * s.quantity) }} ₺</td>
+                                {% if res.reservation_status != 'Cancelled' %}
+                                <td class="text-end">
+                                    <button type="button" class="btn-action btn-action-delete" title="Hizmeti Çıkar"
+                                            data-bs-toggle="modal" data-bs-target="#removeServiceModal"
+                                            data-id="{{ s.reservation_service_id }}"
+                                            data-name="{{ s.service_name }}"
+                                            data-qty="{{ s.quantity }}"
+                                            data-res-id="{{ res.reservation_id }}">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">
+                                    <i class="fa-solid fa-concierge-bell d-block mb-2 fs-4 text-muted"></i>
+                                    Bu rezervasyona henüz ek hizmet eklenmemiş.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Right Column: Payments list & add payment -->
+    <div class="col-lg-4 mb-4">
+        
+        <!-- Payment details card -->
+        <div class="card-custom">
+            <div class="card-header-custom">
+                <h5 class="card-header-title"><i class="fa-solid fa-credit-card me-2 text-primary"></i> Ödeme Geçmişi</h5>
+                {% if res.reservation_status != 'Cancelled' %}
+                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                    <i class="fa-solid fa-plus me-1"></i> Ödeme Al
+                </button>
+                {% endif %}
+            </div>
+            <div class="card-body-custom p-0">
+                <ul class="list-group list-group-flush">
+                    {% for p in payments %}
+                    <li class="list-group-item border-0 border-bottom px-4 py-3 bg-transparent">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold text-dark">{{ "{:,.2f}".format(p.payment_amount) }} ₺</span>
+                            <span class="badge {% if p.payment_status == 'Completed' %}bg-success{% elif p.payment_status == 'Pending' %}bg-warning{% else %}bg-danger{% endif %} rounded-pill fs-9">
+                                {{ 'Tamamlandı' if p.payment_status == 'Completed' else 
+                                   'Beklemede' if p.payment_status == 'Pending' else 'Başarısız' }}
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center small text-muted">
+                            <span><i class="fa-solid fa-money-bill-wave me-1"></i> {{ p.payment_method }}</span>
+                            <span>{{ p.payment_date.strftime('%d.%m.%Y') if p.payment_date else '-' }}</span>
+                        </div>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item text-center py-4 border-0 text-muted">
+                        <i class="fa-solid fa-receipt d-block mb-2 fs-4 text-muted"></i>
+                        Ödeme kaydı bulunmuyor.
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- =========================================================================
+     MODALS
+     ========================================================================= -->
+
+<!-- Edit Reservation Modal -->
+<div class="modal fade" id="editReservationModal" tabindex="-1" aria-labelledby="editReservationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title fw-bold" id="editReservationModalLabel"><i class="fa-solid fa-pen-to-square me-2 text-primary"></i> Rezervasyon Güncelle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('reservation_update') }}" method="POST">
+                <input type="hidden" name="reservation_id" value="{{ res.reservation_id }}">
+                <input type="hidden" name="customer_id" value="{{ res.customer_id }}">
+                <input type="hidden" name="total_price" value="{{ res.total_price }}">
+                <div class="modal-body modal-body-custom">
+                    <div class="mb-3">
+                        <label class="form-label form-label-custom">Müşteri</label>
+                        <input type="text" class="form-control form-control-custom bg-light" value="{{ res.first_name }} {{ res.last_name }}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_room_id" class="form-label form-label-custom">Oda Seçin</label>
+                        <select class="form-select form-control-custom" id="edit_room_id" name="room_id" required>
+                            <!-- Include current room as selected, and list other available rooms -->
+                            <option value="{{ res.room_id }}" selected>Oda {{ res.room_number }} (Şu Anki Oda)</option>
+                            {% for room in rooms if room.room_status == 'Available' and room.room_id != res.room_id %}
+                            <option value="{{ room.room_id }}">{{ room.room_number }} - {{ room.type_name }} ({{ room.price_per_night }} ₺/gece)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_check_in" class="form-label form-label-custom">Giriş Tarihi</label>
+                            <input type="date" class="form-control form-control-custom" id="edit_check_in" name="check_in_date" value="{{ res.check_in_date }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_check_out" class="form-label form-label-custom">Çıkış Tarihi</label>
+                            <input type="date" class="form-control form-control-custom" id="edit_check_out" name="check_out_date" value="{{ res.check_out_date }}" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_status" class="form-label form-label-custom">Rezervasyon Durumu</label>
+                        <select class="form-select form-control-custom" id="edit_status" name="reservation_status" required>
+                            <option value="Pending" {% if res.reservation_status == 'Pending' %}selected{% endif %}>Beklemede (Pending)</option>
+                            <option value="Confirmed" {% if res.reservation_status == 'Confirmed' %}selected{% endif %}>Onaylandı (Confirmed)</option>
+                            <option value="Cancelled" {% if res.reservation_status == 'Cancelled' %}selected{% endif %}>İptal Edildi (Cancelled)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer modal-footer-custom">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Değişiklikleri Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Reservation Modal -->
+<div class="modal fade" id="cancelReservationModal" tabindex="-1" aria-labelledby="cancelReservationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom border-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('reservation_cancel') }}" method="POST">
+                <input type="hidden" name="reservation_id" value="{{ res.reservation_id }}">
+                <!-- Hidden input redirect to detail page -->
+                <input type="hidden" name="redirect_to" value="detail">
+                <div class="modal-body modal-body-custom text-center pt-0">
+                    <i class="fa-solid fa-circle-xmark text-warning fs-1 mb-3"></i>
+                    <h4 class="fw-bold mb-2">Rezervasyon İptal Edilsin mi?</h4>
+                    <p class="text-muted">
+                        Bu rezervasyon kaydı iptal olarak güncellenecek ve oda 'Boş' olarak serbest bırakılacaktır.
+                    </p>
+                </div>
+                <div class="modal-footer modal-footer-custom justify-content-center border-0 pt-0 pb-4">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Vazgeç</button>
+                    <button type="submit" class="btn btn-warning rounded-pill px-4">Rezervasyonu İptal Et</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Attach Service Modal -->
+<div class="modal fade" id="attachServiceModal" tabindex="-1" aria-labelledby="attachServiceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title fw-bold" id="attachServiceModalLabel"><i class="fa-solid fa-concierge-bell me-2 text-primary"></i> Ek Hizmet Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('reservation_attach_service') }}" method="POST">
+                <input type="hidden" name="reservation_id" value="{{ res.reservation_id }}">
+                <div class="modal-body modal-body-custom">
+                    <div class="mb-3">
+                        <label for="service_id" class="form-label form-label-custom">Hizmet Seçiniz</label>
+                        <select class="form-select form-control-custom" id="service_id" name="service_id" required>
+                            <option value="">Seçiniz...</option>
+                            {% for service in services %}
+                            <option value="{{ service.service_id }}">{{ service.service_name }} ({{ "{:,.2f}".format(service.service_price) }} ₺)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="quantity" class="form-label form-label-custom">Adet</label>
+                        <input type="number" class="form-control form-control-custom" id="quantity" name="quantity" value="1" min="1" required>
+                    </div>
+                </div>
+                <div class="modal-footer modal-footer-custom">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Hizmeti Ekle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Remove Service Confirmation Modal -->
+<div class="modal fade" id="removeServiceModal" tabindex="-1" aria-labelledby="removeServiceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom border-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('reservation_remove_service') }}" method="POST">
+                <input type="hidden" id="remove_reservation_service_id" name="reservation_service_id">
+                <input type="hidden" id="remove_res_id" name="reservation_id">
+                <div class="modal-body modal-body-custom text-center pt-0">
+                    <i class="fa-solid fa-trash-can text-danger fs-1 mb-3"></i>
+                    <h4 class="fw-bold mb-2">Hizmeti Kaldır?</h4>
+                    <p class="text-muted">
+                        Bu ek hizmeti (<strong id="remove_service_name"></strong>, adet: <strong id="remove_service_qty"></strong>) 
+                        rezervasyondan silmek istediğinizden emin misiniz? 
+                        <br><span class="text-danger fw-semibold">Hizmet bedeli rezervasyon toplam fiyatından düşülecektir.</span>
+                    </p>
+                </div>
+                <div class="modal-footer modal-footer-custom justify-content-center border-0 pt-0 pb-4">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Vazgeç</button>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4">Evet, Kaldır</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Payment Modal -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1" aria-labelledby="addPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title fw-bold" id="addPaymentModalLabel"><i class="fa-solid fa-credit-card me-2 text-primary"></i> Yeni Ödeme Kaydı Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <form action="{{ url_for('payment_add') }}" method="POST">
+                <input type="hidden" name="reservation_id" value="{{ res.reservation_id }}">
+                <input type="hidden" name="redirect_to" value="detail">
+                <div class="modal-body modal-body-custom">
+                    <div class="mb-3">
+                        <label for="payment_amount" class="form-label form-label-custom">Ödeme Tutarı (₺)</label>
+                        <input type="number" step="0.01" class="form-control form-control-custom" id="payment_amount" name="payment_amount" 
+                               value="{{ res.total_price }}" max="{{ res.total_price }}" min="0.01" required>
+                        <div class="form-text">Rezervasyon toplam tutarı varsayılan olarak seçilmiştir.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="payment_method" class="form-label form-label-custom">Ödeme Yöntemi</label>
+                        <select class="form-select form-control-custom" id="payment_method" name="payment_method" required>
+                            <option value="Cash" selected>Nakit (Cash)</option>
+                            <option value="Credit Card">Kredi Kartı (Credit Card)</option>
+                            <option value="Bank Transfer">Banka Havalesi (Bank Transfer)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="payment_status" class="form-label form-label-custom">Ödeme Durumu</label>
+                        <select class="form-select form-control-custom" id="payment_status" name="payment_status" required>
+                            <option value="Completed" selected>Tamamlandı (Completed)</option>
+                            <option value="Pending">Beklemede (Pending)</option>
+                            <option value="Failed">Başarısız (Failed)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer modal-footer-custom">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Ödemeyi Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Populate Remove Service Modal
+    const removeServiceModal = document.getElementById('removeServiceModal');
+    removeServiceModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const id = button.getAttribute('data-id');
+        const name = button.getAttribute('data-name');
+        const qty = button.getAttribute('data-qty');
+        const resId = button.getAttribute('data-res-id');
+        
+        document.getElementById('remove_reservation_service_id').value = id;
+        document.getElementById('remove_service_name').textContent = name;
+        document.getElementById('remove_service_qty').textContent = qty;
+        document.getElementById('remove_res_id').value = resId;
+    });
+
+    // Date constraint validation for edit reservation form
+    const editCheckIn = document.getElementById('edit_check_in');
+    const editCheckOut = document.getElementById('edit_check_out');
+
+    editCheckIn.addEventListener('change', function() {
+        if (this.value) {
+            const nextDay = new Date(this.value);
+            nextDay.setDate(nextDay.getDate() + 1);
+            editCheckOut.min = nextDay.toISOString().split('T')[0];
+            
+            if (editCheckOut.value && editCheckOut.value <= this.value) {
+                editCheckOut.value = nextDay.toISOString().split('T')[0];
+            }
+        }
+    });
+</script>
+{% endblock %}

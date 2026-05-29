@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+
+{% block title %}Yeni Rezervasyon | Lüks Otel Yönetim Sistemi{% endblock %}
+{% block page_title %}Yeni Rezervasyon Oluştur{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card-custom">
+            <div class="card-header-custom">
+                <h5 class="card-header-title"><i class="fa-solid fa-calendar-plus me-2 text-primary"></i> Rezervasyon Bilgileri</h5>
+                <a href="{{ url_for('reservations_list') }}" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="fa-solid fa-arrow-left me-1"></i> Geri Dön</a>
+            </div>
+            <div class="card-body-custom">
+                <form action="{{ url_for('reservation_create') }}" method="POST" id="createReservationForm">
+                    <div class="row">
+                        
+                        <!-- Customer Selection -->
+                        <div class="col-md-6 mb-3">
+                            <label for="customer_id" class="form-label form-label-custom">Müşteri Seçin <span class="text-danger">*</span></label>
+                            <select class="form-select form-control-custom" id="customer_id" name="customer_id" required>
+                                <option value="">Müşteri Seçiniz...</option>
+                                {% for customer in customers %}
+                                <option value="{{ customer.customer_id }}">{{ customer.first_name }} {{ customer.last_name }} (Pasaport/TCKN: {{ customer.passport_no }})</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Müşteri listede yoksa önce <a href="{{ url_for('customers_list') }}?add=true" target="_blank">Müşteri Ekle</a> sayfasından ekleyin.</div>
+                        </div>
+
+                        <!-- Room Selection -->
+                        <div class="col-md-6 mb-3">
+                            <label for="room_id" class="form-label form-label-custom">Oda Seçin (Yalnızca Uygun Odalar) <span class="text-danger">*</span></label>
+                            <select class="form-select form-control-custom" id="room_id" name="room_id" required>
+                                <option value="">Oda Seçiniz...</option>
+                                {% for room in rooms if room.room_status == 'Available' %}
+                                <option value="{{ room.room_id }}" data-price="{{ room.price_per_night }}">{{ room.room_number }} - {{ room.type_name }} (Gecelik: {{ "{:,.2f}".format(room.price_per_night) }} ₺)</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Listede sadece durumu 'Boş' (Available) olan odalar listelenmektedir.</div>
+                        </div>
+
+                        <!-- Check-in and Check-out dates -->
+                        <div class="col-md-6 mb-3">
+                            <label for="check_in_date" class="form-label form-label-custom">Giriş Tarihi <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control form-control-custom" id="check_in_date" name="check_in_date" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="check_out_date" class="form-label form-label-custom">Çıkış Tarihi <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control form-control-custom" id="check_out_date" name="check_out_date" required>
+                        </div>
+
+                        <!-- Reservation Status -->
+                        <div class="col-md-6 mb-3">
+                            <label for="reservation_status" class="form-label form-label-custom">Rezervasyon Durumu <span class="text-danger">*</span></label>
+                            <select class="form-select form-control-custom" id="reservation_status" name="reservation_status" required>
+                                <option value="Pending" selected>Beklemede (Pending)</option>
+                                <option value="Confirmed">Onaylandı (Confirmed)</option>
+                            </select>
+                        </div>
+
+                    </div>
+
+                    <!-- Live Cost Summary Box (Updates via AJAX calling DB Functions) -->
+                    <div class="card bg-light border-0 rounded-3 my-4 p-4 d-none" id="costSummaryBox">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <h6 class="fw-bold mb-1 text-secondary"><i class="fa-solid fa-calculator me-2"></i> Rezervasyon Fiyat Özeti</h6>
+                                <p class="text-muted mb-0 small">
+                                    Veritabanı SQL fonksiyonları (<code class="small">fn_CalculateReservationCost</code>) kullanılarak hesaplanmıştır.
+                                </p>
+                            </div>
+                            <div class="text-end">
+                                <div class="fs-7 text-muted fw-semibold">Konaklama Süresi: <span id="summary_stay_days" class="text-primary fs-6 fw-bold">0</span> Gün</div>
+                                <div class="fs-4 fw-extrabold text-primary"><span id="summary_total_price">0.00</span> ₺</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{{ url_for('reservations_list') }}" class="btn btn-outline-secondary rounded-pill px-4">İptal</a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold">Rezervasyonu Kaydet</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Set check-in min date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('check_in_date').min = today;
+
+    // Check-out date must be at least check-in + 1 day
+    document.getElementById('check_in_date').addEventListener('change', function() {
+        const checkInVal = this.value;
+        const checkOutInput = document.getElementById('check_out_date');
+        
+        if (checkInVal) {
+            const nextDay = new Date(checkInVal);
+            nextDay.setDate(nextDay.getDate() + 1);
+            checkOutInput.min = nextDay.toISOString().split('T')[0];
+            
+            if (checkOutInput.value && checkOutInput.value <= checkInVal) {
+                checkOutInput.value = nextDay.toISOString().split('T')[0];
+            }
+        }
+        calculateLiveCost();
+    });
+
+    document.getElementById('check_out_date').addEventListener('change', calculateLiveCost);
+    document.getElementById('room_id').addEventListener('change', calculateLiveCost);
+
+    function calculateLiveCost() {
+        const roomId = document.getElementById('room_id').value;
+        const checkIn = document.getElementById('check_in_date').value;
+        const checkOut = document.getElementById('check_out_date').value;
+        const summaryBox = document.getElementById('costSummaryBox');
+
+        if (roomId && checkIn && checkOut) {
+            // Send AJAX request to get calculated price
+            const url = `{{ url_for('reservation_calculate_cost_api') }}?room_id=${roomId}&check_in=${checkIn}&check_out=${checkOut}`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('summary_stay_days').textContent = data.stay_days;
+                        document.getElementById('summary_total_price').textContent = parseFloat(data.total_cost).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        summaryBox.classList.remove('d-none');
+                    } else {
+                        summaryBox.classList.add('d-none');
+                        console.error("Fiyat hesaplama hatası:", data.message);
+                    }
+                })
+                .catch(err => {
+                    console.error("API hatası:", err);
+                    summaryBox.classList.add('d-none');
+                });
+        } else {
+            summaryBox.classList.add('d-none');
+        }
+    }
+</script>
+{% endblock %}

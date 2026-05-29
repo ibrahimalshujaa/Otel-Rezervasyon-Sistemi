@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | Lüks Otel Yönetim Sistemi{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Metric Cards Grid -->
+<div class="metrics-grid">
+    <!-- Total Customers -->
+    <div class="metric-card metric-primary">
+        <div class="metric-card-info">
+            <span class="metric-title">Toplam Müşteri</span>
+            <span class="metric-value">{{ stats.TotalCustomers }}</span>
+        </div>
+        <div class="metric-icon-box">
+            <i class="fa-solid fa-user-group"></i>
+        </div>
+    </div>
+    
+    <!-- Total Rooms -->
+    <div class="metric-card metric-info">
+        <div class="metric-card-info">
+            <span class="metric-title">Toplam Oda</span>
+            <span class="metric-value">{{ stats.TotalRooms }}</span>
+        </div>
+        <div class="metric-icon-box">
+            <i class="fa-solid fa-bed"></i>
+        </div>
+    </div>
+
+    <!-- Available Rooms -->
+    <div class="metric-card metric-success">
+        <div class="metric-card-info">
+            <span class="metric-title">Boş Oda</span>
+            <span class="metric-value">{{ stats.AvailableRooms }}</span>
+        </div>
+        <div class="metric-icon-box">
+            <i class="fa-solid fa-circle-check"></i>
+        </div>
+    </div>
+
+    <!-- Total Reservations -->
+    <div class="metric-card metric-warning">
+        <div class="metric-card-info">
+            <span class="metric-title">Rezervasyon</span>
+            <span class="metric-value">{{ stats.TotalReservations }}</span>
+        </div>
+        <div class="metric-icon-box">
+            <i class="fa-solid fa-calendar-days"></i>
+        </div>
+    </div>
+
+    <!-- Total Revenue -->
+    <div class="metric-card metric-danger">
+        <div class="metric-card-info">
+            <span class="metric-title">Toplam Gelir</span>
+            <span class="metric-value">{{ "{:,.2f}".format(stats.TotalRevenue) }} ₺</span>
+        </div>
+        <div class="metric-icon-box">
+            <i class="fa-solid fa-wallet"></i>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Reservations List -->
+    <div class="col-lg-8 mb-4">
+        <div class="card-custom">
+            <div class="card-header-custom">
+                <h5 class="card-header-title"><i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i> Son Rezervasyonlar</h5>
+                <a href="{{ url_for('reservations_list') }}" class="btn btn-sm btn-outline-primary rounded-pill">Tümünü Gör</a>
+            </div>
+            <div class="card-body-custom p-0">
+                <div class="table-responsive-custom">
+                    <table class="table table-custom">
+                        <thead>
+                            <tr>
+                                <th>Rez. ID</th>
+                                <th>Müşteri</th>
+                                <th>Oda</th>
+                                <th>Giriş / Çıkış</th>
+                                <th>Durum</th>
+                                <th>Tutar</th>
+                                <th>İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for res in recent_reservations[:5] %}
+                            <tr>
+                                <td class="fw-bold">#{{ res.reservation_id }}</td>
+                                <td>{{ res.first_name }} {{ res.last_name }}</td>
+                                <td><span class="badge bg-secondary">Oda {{ res.room_number }}</span></td>
+                                <td>
+                                    <small class="d-block text-muted">Giriş: {{ res.check_in_date }}</small>
+                                    <small class="d-block text-muted">Çıkış: {{ res.check_out_date }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge-custom 
+                                        {% if res.reservation_status == 'Pending' %}badge-status-maintenance
+                                        {% elif res.reservation_status == 'Confirmed' %}badge-status-available
+                                        {% else %}badge-status-occupied{% endif %}">
+                                        {{ 'Beklemede' if res.reservation_status == 'Pending' else 
+                                           'Onaylandı' if res.reservation_status == 'Confirmed' else 'İptal Edildi' }}
+                                    </span>
+                                </td>
+                                <td class="fw-semibold text-primary">{{ "{:,.2f}".format(res.total_price) }} ₺</td>
+                                <td>
+                                    <a href="{{ url_for('reservation_detail_page', reservation_id=res.reservation_id) }}" 
+                                       class="btn-action btn-action-view" title="Detayları Görüntüle">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    <i class="fa-regular fa-calendar-xmark d-block mb-2 fs-3"></i>
+                                    Kayıtlı rezervasyon bulunmuyor.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions & Room Info -->
+    <div class="col-lg-4 mb-4">
+        <!-- Quick Actions Card -->
+        <div class="card-custom mb-4">
+            <div class="card-header-custom">
+                <h5 class="card-header-title"><i class="fa-solid fa-bolt me-2 text-warning"></i> Hızlı İşlemler</h5>
+            </div>
+            <div class="card-body-custom">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('reservation_create_page') }}" class="btn btn-primary text-start px-3 py-2 rounded-3 d-flex align-items-center justify-content-between">
+                        <div>
+                            <i class="fa-solid fa-calendar-plus me-2"></i> Rezervasyon Oluştur
+                        </div>
+                        <i class="fa-solid fa-chevron-right fs-7"></i>
+                    </a>
+                    <a href="{{ url_for('customers_list') }}?add=true" class="btn btn-outline-secondary text-start px-3 py-2 rounded-3 d-flex align-items-center justify-content-between">
+                        <div>
+                            <i class="fa-solid fa-user-plus me-2"></i> Müşteri Ekle
+                        </div>
+                        <i class="fa-solid fa-chevron-right fs-7"></i>
+                    </a>
+                    <a href="{{ url_for('rooms_list') }}?add=true" class="btn btn-outline-secondary text-start px-3 py-2 rounded-3 d-flex align-items-center justify-content-between">
+                        <div>
+                            <i class="fa-solid fa-door-closed me-2"></i> Yeni Oda Ekle
+                        </div>
+                        <i class="fa-solid fa-chevron-right fs-7"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Room Type Pricing Summary -->
+        <div class="card-custom">
+            <div class="card-header-custom">
+                <h5 class="card-header-title"><i class="fa-solid fa-tags me-2 text-info"></i> Oda Tipleri Fiyatları</h5>
+            </div>
+            <div class="card-body-custom p-0">
+                <ul class="list-group list-group-flush">
+                    {% for rt in room_types %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 border-bottom px-4 py-3 bg-transparent">
+                        <div>
+                            <h6 class="mb-0 fw-semibold">{{ rt.type_name }}</h6>
+                            <small class="text-muted"><i class="fa-solid fa-users me-1"></i> Kapasite: {{ rt.capacity }} Kişi</small>
+                        </div>
+                        <span class="badge bg-primary rounded-pill px-3 py-2 fs-7 fw-semibold">{{ "{:,.2f}".format(rt.price_per_night) }} ₺ / Gece</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
