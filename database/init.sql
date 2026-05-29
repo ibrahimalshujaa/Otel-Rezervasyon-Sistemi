@@ -1,6 +1,4 @@
--- Hotel Reservation System Database Schema & Initialization
 -- Project Title: Otel Rezervasyon Sistemi
--- Author: Antigravity AI
 
 DROP DATABASE IF EXISTS hotel_reservation_db;
 CREATE DATABASE hotel_reservation_db;
